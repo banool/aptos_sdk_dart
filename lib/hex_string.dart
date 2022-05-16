@@ -38,6 +38,15 @@ class HexString {
 
   @override
   String toString() {
-    throw "toString is ambiguous, use noPrefix or withPrefix";
+    return "${noPrefix()}";
+    return "borking because toString is ambiguous, use noPrefix or withPrefix: ${withPrefix()}";
+  }
+
+  @override
+  int get hashCode => _hexString.hashCode;
+
+  @override
+  bool operator ==(Object other) {
+    return (other is HexString && _hexString == other._hexString);
   }
 }

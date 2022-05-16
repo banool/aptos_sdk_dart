@@ -17,6 +17,11 @@ class AptosAccount {
     return AptosAccount._internal(signingKey, a, authKey);
   }
 
+  factory AptosAccount.fromPrivateKeyHexString(HexString privateKey,
+      {HexString? address}) {
+    return AptosAccount.fromPrivateKey(privateKey.toBytes(), address: address);
+  }
+
   factory AptosAccount.generate() {
     var signingKey = SigningKey.generate();
     var authKey = createAuthKey(signingKey);
@@ -24,9 +29,10 @@ class AptosAccount {
   }
 
   static HexString createAuthKey(SigningKey privateKey) {
-    var hash = SHA3(256, KECCAK_PADDING, 256);
+    var hash = SHA3(256, SHA3_PADDING, 256);
     hash.update(privateKey.publicKey);
     hash.update("\x00".codeUnits);
+    hash.finalize();
     return HexString.fromBytes(Uint8List.fromList(hash.digest()));
   }
 
