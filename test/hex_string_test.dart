@@ -5,16 +5,14 @@ const withoutPrefix = "007711b4d0";
 const withPrefix = "0x$withoutPrefix";
 
 void validate(HexString hexString) {
-  expect(hexString.hex(), withPrefix);
-  expect(hexString.toString(), withPrefix);
-  expect("$hexString", withPrefix);
+  expect(hexString.withPrefix(), withPrefix);
   expect(hexString.noPrefix(), withoutPrefix);
 }
 
 void main() {
   test("from/to List<int>", () {
     var hs = HexString.fromString(withoutPrefix);
-    expect(HexString.fromBytes(hs.toBytes()).hex(), withPrefix);
+    expect(HexString.fromBytes(hs.toBytes()).withPrefix(), withPrefix);
   });
 
   test("accepts input without prefix", () {

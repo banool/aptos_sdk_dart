@@ -1,4 +1,5 @@
 import 'package:pinenacl/ed25519.dart';
+import 'package:convert/convert.dart';
 
 /// We use this class for strings that represent hex values (addresses) so we
 /// can deal with the 0x prefix properly.
@@ -13,25 +14,30 @@ class HexString {
   }
 
   factory HexString.fromBytes(Uint8List l) {
-    return HexString.fromString(String.fromCharCodes(l));
+    // Attempt to clean up when a user passes in an int list with the ascii
+    // representations of 0 and x as the first two elements.
+    if (l[1] == 78) {
+      l = l.sublist(2);
+    }
+    return HexString.fromString(hex.encode(l));
   }
 
   HexString._internal(this._hexString);
-
-  String hex() {
-    return _hexString;
-  }
 
   String noPrefix() {
     return _hexString.substring(2);
   }
 
-  @override
-  String toString() {
-    return hex();
+  String withPrefix() {
+    return _hexString;
   }
 
   Uint8List toBytes() {
-    return Uint8List.fromList(noPrefix().codeUnits);
+    return Uint8List.fromList(hex.decode(noPrefix()));
+  }
+
+  @override
+  String toString() {
+    throw "toString is ambiguous, use noPrefix or withPrefix";
   }
 }
