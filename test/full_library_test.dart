@@ -26,16 +26,7 @@ void main() {
   });
 
   test("sign transaction test", () async {
-    // TODO: Use faucet client to fund and create a new account instead.
-    AptosApiDart client =
-        AptosApiDart(basePathOverride: fullnodeUri.toString());
-
-    AptosAccount account = AptosAccount.fromPrivateKeyHexString(privateKey);
-
-    // Get resources.
-    await client
-        .getAccountsApi()
-        .getAccountResources(address: account.address.noPrefix());
+    // TODO pending resolving below
   });
 }
 
