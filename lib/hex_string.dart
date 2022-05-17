@@ -36,9 +36,16 @@ class HexString {
     return Uint8List.fromList(hex.decode(noPrefix()));
   }
 
+  // Forwards a substring call to the inner string, skipping the 0x prefix.
+  HexString substring(int start, [int? end]) {
+    if (end != null) {
+      end += 2;
+    }
+    return HexString._internal("0x${_hexString.substring(start + 2, end)}");
+  }
+
   @override
   String toString() {
-    return "${noPrefix()}";
     return "borking because toString is ambiguous, use noPrefix or withPrefix: ${withPrefix()}";
   }
 

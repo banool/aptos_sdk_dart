@@ -10,17 +10,17 @@ void validate(HexString hexString) {
 }
 
 void main() {
-  test("from/to List<int>", () {
+  test("test from / to Uint8List", () {
     var hs = HexString.fromString(withoutPrefix);
     expect(HexString.fromBytes(hs.toBytes()).withPrefix(), withPrefix);
   });
 
-  test("accepts input without prefix", () {
+  test("test input without prefix", () {
     var hs = HexString.fromString(withoutPrefix);
     validate(hs);
   });
 
-  test("accepts input with prefix", () {
+  test("test input with prefix", () {
     var hs = HexString.fromString(withPrefix);
     validate(hs);
   });
