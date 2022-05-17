@@ -16,4 +16,15 @@ void main() {
     expect(aptosAccount.pubKey(), HexString.fromString(expectedPublicKey));
     expect(aptosAccount.address, HexString.fromString(expectedAccount));
   });
+
+  test("test signing message", () {
+    var aptosAccount = AptosAccount.fromPrivateKeyHexString(HexString.fromString(
+        "0xc5338cd251c22daa8c9c9cc94f498cc8a5c7e1d2e75287a5dda91096fe64efa5de19e5d1880cac87d57484ce9ed2e84cf0f9599f12e7cc3a52e4e7657a763f2c"));
+    expect(
+      aptosAccount
+          .signHexString(HexString.fromString("0xdeadbeef"))
+          .withPrefix(),
+      "0xb1bc150b03c7770e5f87490b3d4d216cebc1236885c375eb3ad8e9e846fe25b4f0077945a97c38f4626625fd26e72b0809083c4a0ee1ef8676532a57eab28208",
+    );
+  });
 }
