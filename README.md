@@ -1,39 +1,9 @@
-<!-- 
-This README describes the package. If you publish this package to pub.dev,
-this README's contents appear on the landing page for your package.
+# Dart Aptos SDK
 
-For information about how to write a good package README, see the guide for
-[writing package pages](https://dart.dev/guides/libraries/writing-package-pages). 
+This package re-exports the [Dart Aptos API](https://github.com/banool/aptos_api_dart) and provides additional functionality to support its use, such as utilities for working with hex strings / addresses and functionality supporting Aptos accounts, particularly for working with keys / account addresses.
 
-For general information about developing packages, see the Dart guide for
-[creating packages](https://dart.dev/guides/libraries/create-library-packages)
-and the Flutter guide for
-[developing packages and plugins](https://flutter.dev/developing-packages). 
--->
+**Warning**: Due to [deficiencies in the OpenAPI generator for Dart](https://stackoverflow.com/questions/72266600/how-to-use-oneof-with-openapi-generator-for-dart), any endpoint in the [OpenAPI spec](https://github.com/aptos-labs/aptos-core/blob/main/api/doc/openapi.yaml) that recursively depends on something with a OneOf / AllOf is not really usable. See more in the linked StackOverflow question. The only workaround right now is to write your own code for submitting to that endpoint. If you want to do so, consider writing a "fixer" for the [Dart Aptos API](https://github.com/banool/aptos_api_dart) that makes the change directly to that API post-codegen.
 
-TODO: Put a short description of the package here that helps potential users
-know whether this package might be useful for them.
+Ignoring the above issues, this SDK is currently still incomplete compared to the [typescript SDK](https://github.com/aptos-labs/aptos-core/blob/main/ecosystem/typescript/sdk). For example, this doesn't offer a faucet client. Hopefully I'll have time to build it out further in the future.
 
-## Features
-
-TODO: List what your package can do. Maybe include images, gifs, or videos.
-
-## Getting started
-
-TODO: List prerequisites and provide or point to information on how to
-start using the package.
-
-## Usage
-
-TODO: Include short and useful examples for package users. Add longer examples
-to `/example` folder. 
-
-```dart
-const like = 'sample';
-```
-
-## Additional information
-
-TODO: Tell users more about the package: where to find more information, how to 
-contribute to the package, how to file issues, what response they can expect 
-from the package authors, and more.
+This library does lock you in to using Dio, apologies. Unfortunately the dart-dio generator was much better than the standard HTTP one. Beyond that I could've just generated models, but I opted for ease of use.
