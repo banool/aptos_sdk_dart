@@ -14,7 +14,15 @@ import 'hex_string.dart';
 
 Future<T> unwrapClientCall<T>(Future<Response<T>> clientCall,
     {bool throwOnNon200 = true}) async {
-  Response<T> response = await clientCall;
+  Response<T> response;
+  try {
+    response = await clientCall;
+  } on DioError catch (e) {
+    print("Error Message: ${e.message}");
+    print("Error Response: ${e.response}");
+    print("Error Type: ${e.type}");
+    rethrow;
+  }
   if (response.data == null) {
     throw "Empty response: ${response.statusCode}: ${response.statusMessage}";
   }
@@ -46,7 +54,7 @@ class AptosClientHelper {
   Future<$UserTransactionRequestBuilder> generateTransaction(
     HexString sender,
     TransactionPayloadBuilder transactionPayloadBuilder, {
-    int maxGasAmount = 10,
+    int maxGasAmount = 1000,
     int gasUnitPrice = 1,
     String gasCurrencyCode = "XUS",
     int expirationFromNowSecs = 10,
@@ -61,7 +69,7 @@ class AptosClientHelper {
       ..gasUnitPrice = "$gasUnitPrice"
       ..gasCurrencyCode = gasCurrencyCode
       ..expirationTimestampSecs =
-          "${(DateTime.now().millisecondsSinceEpoch ~/ 1000) + 10}";
+          "${(DateTime.now().millisecondsSinceEpoch + expirationFromNowSecs * 1000) ~/ 1000}";
   }
 
   // Converts a transaction request produced by `generate_transaction` into a
@@ -89,7 +97,9 @@ class AptosClientHelper {
 
     TransactionSignatureBuilder transactionSignatureBuilder =
         TransactionSignatureBuilder()
-          ..oneOf = OneOf1(value: ed25519signatureBuilder);
+          ..oneOf = OneOf3<Ed25519Signature, MultiAgentSignature,
+                  MultiEd25519Signature>(
+              value: ed25519signatureBuilder.build(), typeIndex: 0);
 
     SubmitTransactionRequestBuilder submitTransactionRequestBuilder =
         (SubmitTransactionRequestBuilder()
@@ -97,7 +107,7 @@ class AptosClientHelper {
           ..sender = userTransactionRequest.sender
           ..sequenceNumber = userTransactionRequest.sequenceNumber
           ..maxGasAmount = userTransactionRequest.maxGasAmount
-          ..gasUnitPrice = userTransactionRequest.maxGasAmount
+          ..gasUnitPrice = userTransactionRequest.gasUnitPrice
           ..gasCurrencyCode = userTransactionRequest.gasCurrencyCode
           ..expirationTimestampSecs =
               userTransactionRequest.expirationTimestampSecs
@@ -108,7 +118,7 @@ class AptosClientHelper {
 
   // Waits for a transaction to move past pending state.
   // Returns true if the transaction moved past pending state, false if not.
-  Future<bool> waitForTransaction(PendingTransaction pendingTransaction,
+  Future<bool> waitForTransaction(String txnHashOrVersion,
       {int durationSecs = 10}) async {
     int count = 0;
     int sleepAmountSecs = 1;
@@ -116,7 +126,7 @@ class AptosClientHelper {
       try {
         await unwrapClientCall(client
             .getTransactionsApi()
-            .getTransaction(txnHashOrVersion: pendingTransaction.hash));
+            .getTransaction(txnHashOrVersion: txnHashOrVersion));
         return true;
       } catch (e) {
         await Future.delayed(Duration(seconds: sleepAmountSecs));

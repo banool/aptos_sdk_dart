@@ -4,6 +4,7 @@ import 'package:aptos_sdk_dart/aptos_client_helper.dart';
 import 'package:aptos_sdk_dart/hex_string.dart';
 import 'package:built_collection/built_collection.dart';
 import 'package:built_value/json_object.dart';
+import 'package:dio/dio.dart';
 import "package:flutter_test/flutter_test.dart";
 import 'package:one_of/one_of.dart';
 
@@ -31,8 +32,11 @@ void main() {
   });
 
   test("test full transaction flow", () async {
-    AptosClientHelper aptosClientHelper =
-        AptosClientHelper.fromBaseUrl(fullnodeUri.toString());
+    Dio dio = Dio(BaseOptions(
+      baseUrl: fullnodeUri.toString(),
+    ));
+
+    AptosClientHelper aptosClientHelper = AptosClientHelper.fromDio(dio);
 
     AptosAccount account = AptosAccount.fromPrivateKeyHexString(privateKey);
 
@@ -44,10 +48,11 @@ void main() {
           ..typeArguments = ListBuilder(["0x1::TestCoin::TestCoin"])
           ..arguments = ListBuilder([
             StringJsonObject(otherAddress.withPrefix()),
-            NumJsonObject(100)
+            StringJsonObject("717")
           ]);
 
     // Build that into a transaction payload.
+    // You can also just use OneOf1(value: scriptFunctionPayloadBuilder.build())
     TransactionPayloadBuilder transactionPayloadBuilder =
         TransactionPayloadBuilder()
           ..oneOf = OneOf4<ModuleBundlePayload, ScriptFunctionPayload,
@@ -72,7 +77,7 @@ void main() {
 
     // Wait for the transaction to be committed.
     bool committed =
-        await aptosClientHelper.waitForTransaction(pendingTransaction);
+        await aptosClientHelper.waitForTransaction(pendingTransaction.hash);
 
     expect(committed, true);
   });
