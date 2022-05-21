@@ -1,13 +1,13 @@
 name: aptos_sdk_dart
 description: Aptos SDK
-version: 0.0.1
+version: 0.0.2
 homepage: "https://github.com/banool/aptos_sdk_dart"
 
 environment:
   sdk: ">=2.17.0 <3.0.0"
 
 dependencies:
-  aptos_api_dart: ^0.2.3
+  aptos_api_dart: ^0.3.3
   convert: ^3.0.1
   dio: ^4.0.6
   pinenacl: ^0.3.4
@@ -19,5 +19,6 @@ dev_dependencies:
   built_collection:
   built_value:
   flutter_lints: ^2.0.0
+  curl_logger_dio_interceptor: ^0.0.2
   flutter_test:
     sdk: flutter

@@ -4,6 +4,7 @@ import 'package:aptos_sdk_dart/aptos_client_helper.dart';
 import 'package:aptos_sdk_dart/hex_string.dart';
 import 'package:built_collection/built_collection.dart';
 import 'package:built_value/json_object.dart';
+import 'package:curl_logger_dio_interceptor/curl_logger_dio_interceptor.dart';
 import 'package:dio/dio.dart';
 import "package:flutter_test/flutter_test.dart";
 import 'package:one_of/one_of.dart';
@@ -35,6 +36,9 @@ void main() {
     Dio dio = Dio(BaseOptions(
       baseUrl: fullnodeUri.toString(),
     ));
+
+    // This can be very helpful with debugging.
+    // dio.interceptors.add(CurlLoggerDioInterceptor(printOnSuccess: true));
 
     AptosClientHelper aptosClientHelper = AptosClientHelper.fromDio(dio);
 

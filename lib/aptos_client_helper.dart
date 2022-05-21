@@ -15,18 +15,13 @@ import 'hex_string.dart';
 Future<T> unwrapClientCall<T>(Future<Response<T>> clientCall,
     {bool throwOnNon200 = true}) async {
   Response<T> response;
-  try {
-    response = await clientCall;
-  } on DioError catch (e) {
-    print("Error Message: ${e.message}");
-    print("Error Response: ${e.response}");
-    print("Error Type: ${e.type}");
-    rethrow;
-  }
+  response = await clientCall;
   if (response.data == null) {
     throw "Empty response: ${response.statusCode}: ${response.statusMessage}";
   }
-  if (throwOnNon200 && response.statusCode != 200) {
+  if (throwOnNon200 &&
+      response.statusCode != null &&
+      (response.statusCode! < 200 || response.statusCode! > 299)) {
     throw "Non-200 response: ${response.statusCode}: ${response.statusMessage}";
   }
   return response.data as T; // Dart prefers this over !
