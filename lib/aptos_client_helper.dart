@@ -27,6 +27,25 @@ Future<T> unwrapClientCall<T>(Future<Response<T>> clientCall,
   return response.data as T; // Dart prefers this over !
 }
 
+class PendingTransactionResult {
+  bool committed;
+  Object? error;
+
+  String? getErrorString() {
+    if (error == null) {
+      return null;
+    }
+    if (error is DioError) {
+      var e = error as DioError;
+      return "Type: ${e.type}\nMessage: ${e.message}\nResponse: ${e.response}\nError: ${e.error}";
+    } else {
+      return "$error";
+    }
+  }
+
+  PendingTransactionResult(this.committed, this.error);
+}
+
 // This class provides some helpful wrappers on top of the functionality
 // provided by the client held within (AptosApiDart). If you don't see a
 // function offered here explicitly, you will likely find the function on
@@ -113,21 +132,23 @@ class AptosClientHelper {
 
   // Waits for a transaction to move past pending state.
   // Returns true if the transaction moved past pending state, false if not.
-  Future<bool> waitForTransaction(String txnHashOrVersion,
+  Future<PendingTransactionResult> waitForTransaction(String txnHashOrVersion,
       {int durationSecs = 10}) async {
     int count = 0;
     int sleepAmountSecs = 1;
-    while (count < durationSecs) {
+    while (true) {
       try {
         await unwrapClientCall(client
             .getTransactionsApi()
             .getTransaction(txnHashOrVersion: txnHashOrVersion));
-        return true;
+        return PendingTransactionResult(true, null);
       } catch (e) {
         await Future.delayed(Duration(seconds: sleepAmountSecs));
         count += 1;
+        if (count == durationSecs) {
+          return PendingTransactionResult(false, e);
+        }
       }
     }
-    return false;
   }
 }

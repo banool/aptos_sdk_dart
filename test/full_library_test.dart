@@ -80,9 +80,9 @@ void main() {
             submitTransactionRequest: submitTransactionRequestBuilder.build()));
 
     // Wait for the transaction to be committed.
-    bool committed =
+    PendingTransactionResult pendingTransactionResult =
         await aptosClientHelper.waitForTransaction(pendingTransaction.hash);
 
-    expect(committed, true);
+    expect(pendingTransactionResult.committed, true);
   }, tags: "integration");
 }
