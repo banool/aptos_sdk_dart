@@ -22,6 +22,13 @@ class HexString {
     return HexString.fromString(hex.encode(l));
   }
 
+  // Whereas fromString takes in a string that already represents a hex encoded
+  // value, such as an account address, this takes in just a regular old string,
+  // such as "hey friend!", and converts it to hex.
+  factory HexString.fromRegularString(String s) {
+    return HexString.fromBytes(Uint8List.fromList(s.codeUnits));
+  }
+
   HexString._internal(this._hexString);
 
   String noPrefix() {
@@ -34,6 +41,12 @@ class HexString {
 
   Uint8List toBytes() {
     return Uint8List.fromList(hex.decode(noPrefix()));
+  }
+
+  // Returns what you passed in to fromRegularString. Not really relevant
+  // otherwise.
+  String toRegularString() {
+    return String.fromCharCodes(toBytes());
   }
 
   // Forwards a substring call to the inner string, skipping the 0x prefix.

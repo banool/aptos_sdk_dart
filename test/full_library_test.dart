@@ -30,7 +30,7 @@ void main() {
     await unwrapClientCall(aptosClientHelper.client
         .getAccountsApi()
         .getAccountResources(address: account.address.noPrefix()));
-  });
+  }, tags: "integration");
 
   test("test full transaction flow", () async {
     Dio dio = Dio(BaseOptions(
@@ -84,5 +84,5 @@ void main() {
         await aptosClientHelper.waitForTransaction(pendingTransaction.hash);
 
     expect(committed, true);
-  });
+  }, tags: "integration");
 }

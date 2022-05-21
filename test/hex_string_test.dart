@@ -10,7 +10,7 @@ void validate(HexString hexString) {
 }
 
 void main() {
-  test("test from / to Uint8List", () {
+  test("test to / from Uint8List", () {
     var hs = HexString.fromString(withoutPrefix);
     expect(HexString.fromBytes(hs.toBytes()).withPrefix(), withPrefix);
   });
@@ -23,5 +23,13 @@ void main() {
   test("test input with prefix", () {
     var hs = HexString.fromString(withPrefix);
     validate(hs);
+  });
+
+  test("test to / from regular string", () {
+    String regularString = "hey friend";
+    String expected = "0x68657920667269656e64";
+    expect(HexString.fromRegularString(regularString).withPrefix(), expected);
+    expect(HexString.fromRegularString(regularString).toRegularString(),
+        regularString);
   });
 }
