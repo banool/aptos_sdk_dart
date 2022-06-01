@@ -1,3 +1,6 @@
+## 0.2.2
+- Make private key readable from `AptosAccount`.
+
 ## 0.2.1
 - Export client helper from root.
 

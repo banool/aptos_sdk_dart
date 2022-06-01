@@ -7,6 +7,8 @@ class AptosAccount {
   HexString address;
   HexString authKey;
 
+  SigningKey get signingKey => _signingKey;
+
   // This class allows passing in an address, to handle account key rotation,
   // where auth_key != public_key (address).
   factory AptosAccount.fromPrivateKey(Uint8List privateKeyBytes,
