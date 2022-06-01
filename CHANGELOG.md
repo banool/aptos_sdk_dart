@@ -1,3 +1,6 @@
+## 0.2.1
+- Export client helper from root.
+
 ## 0.2.0
 - Return whether transaction was committed and error if not from waitForTransaction.
 
