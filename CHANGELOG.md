@@ -1,3 +1,6 @@
+## 0.3.0
+- Handle erroneous errors from API on successful transactions by default, but allow user opt out, with `ignoreErroneousErrorOnSuccess` on `AptosClientHelper`.
+
 ## 0.2.2
 - Make private key readable from `AptosAccount`.
 
@@ -5,7 +8,7 @@
 - Export client helper from root.
 
 ## 0.2.0
-- Return whether transaction was committed and error if not from waitForTransaction.
+- Return whether transaction was committed and error if not from `waitForTransaction`.
 
 ## 0.1.0
 - Add helpers for hex encoding / decoding regular old strings.

@@ -51,17 +51,22 @@ class PendingTransactionResult {
 // function offered here explicitly, you will likely find the function on
 // `client` directly instead.
 class AptosClientHelper {
-  AptosApiDart client;
+  final AptosApiDart client;
+  final bool ignoreErroneousErrorOnSuccess;
 
-  factory AptosClientHelper.fromDio(Dio dio) {
-    return AptosClientHelper(AptosApiDart(dio: dio));
+  factory AptosClientHelper.fromDio(Dio dio,
+      {bool ignoreErroneousErrorOnSuccess = true}) {
+    return AptosClientHelper(
+        AptosApiDart(dio: dio), ignoreErroneousErrorOnSuccess);
   }
 
-  factory AptosClientHelper.fromBaseUrl(String baseUrl) {
-    return AptosClientHelper(AptosApiDart(basePathOverride: baseUrl));
+  factory AptosClientHelper.fromBaseUrl(String baseUrl,
+      {bool ignoreErroneousErrorOnSuccess = true}) {
+    return AptosClientHelper(
+        AptosApiDart(basePathOverride: baseUrl), ignoreErroneousErrorOnSuccess);
   }
 
-  AptosClientHelper(this.client);
+  AptosClientHelper(this.client, this.ignoreErroneousErrorOnSuccess);
 
   // This function gets the current sequence number of the account and then
   // builds a transaction using that value.
@@ -92,14 +97,25 @@ class AptosClientHelper {
     AptosAccount accountFrom,
     $UserTransactionRequestBuilder userTransactionRequest,
   ) async {
+    // Build the request to create the signing message.
     UserTransactionRequest u = userTransactionRequest.build();
+    UserCreateSigningMessageRequestBuilder userCreateSigningMessageRequest =
+        UserCreateSigningMessageRequestBuilder()
+          ..sender = u.sender
+          ..sequenceNumber = u.sequenceNumber
+          ..payload = u.payload.toBuilder()
+          ..maxGasAmount = u.maxGasAmount
+          ..gasUnitPrice = u.gasUnitPrice
+          ..gasCurrencyCode = u.gasCurrencyCode
+          ..expirationTimestampSecs = u.expirationTimestampSecs;
+
     // This call is where the error is coming from. It happens in the actual
     // call, not in unwrapClientCall, so it's an issue with the client /
     // endpoint code / my request.
     CreateSigningMessage200Response createSigningMessageResponse =
-        await unwrapClientCall(client
-            .getTransactionsApi()
-            .createSigningMessage(userTransactionRequest: u));
+        await unwrapClientCall(client.getTransactionsApi().createSigningMessage(
+            userCreateSigningMessageRequest:
+                userCreateSigningMessageRequest.build()));
 
     HexString signatureHex = accountFrom.signHexString(
         HexString.fromString(createSigningMessageResponse.message));
@@ -143,6 +159,13 @@ class AptosClientHelper {
             .getTransaction(txnHashOrVersion: txnHashOrVersion));
         return PendingTransactionResult(true, null);
       } catch (e) {
+        // This is a temporary thing to handle the case where the client says
+        // the call failed, but really it succeeded, and it's just that the API
+        // returns a struct with an illegally empty field according to the
+        // OpenAPI spec.
+        if (e.toString().contains("mark \"handle\" with @nullable")) {
+          return PendingTransactionResult(true, null);
+        }
         await Future.delayed(Duration(seconds: sleepAmountSecs));
         count += 1;
         if (count == durationSecs) {
