@@ -85,4 +85,36 @@ void main() {
 
     expect(pendingTransactionResult.committed, true);
   }, tags: "integration");
+
+  test("test signBuildSubmitWait", () async {
+    Dio dio = Dio(BaseOptions(
+      baseUrl: fullnodeUri.toString(),
+    ));
+
+    // This can be very helpful with debugging.
+    // dio.interceptors.add(CurlLoggerDioInterceptor(printOnSuccess: true));
+
+    AptosClientHelper aptosClientHelper = AptosClientHelper.fromDio(dio);
+
+    AptosAccount account = AptosAccount.fromPrivateKeyHexString(privateKey);
+
+    // Build a script function payload that transfers coin.
+    ScriptFunctionPayloadBuilder scriptFunctionPayloadBuilder =
+        ScriptFunctionPayloadBuilder()
+          ..type = "script_function_payload"
+          ..function_ = "0x1::Coin::transfer"
+          ..typeArguments = ListBuilder(["0x1::TestCoin::TestCoin"])
+          ..arguments = ListBuilder([
+            StringJsonObject(otherAddress.withPrefix()),
+            StringJsonObject("717")
+          ]);
+
+    FullTransactionResult transactionResult =
+        await aptosClientHelper.buildSignSubmitWait(
+            OneOf1<ScriptFunctionPayload>(
+                value: scriptFunctionPayloadBuilder.build()),
+            account);
+
+    expect(transactionResult.committed, true);
+  }, tags: "integration");
 }

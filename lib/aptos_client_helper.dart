@@ -31,18 +31,6 @@ class PendingTransactionResult {
   bool committed;
   Object? error;
 
-  String? getErrorString() {
-    if (error == null) {
-      return null;
-    }
-    if (error is DioError) {
-      var e = error as DioError;
-      return "Type: ${e.type}\nMessage: ${e.message}\nResponse: ${e.response}\nError: ${e.error}";
-    } else {
-      return "$error";
-    }
-  }
-
   PendingTransactionResult(this.committed, this.error);
 }
 
@@ -174,4 +162,97 @@ class AptosClientHelper {
       }
     }
   }
+
+  // This is a more opinionated helper that aims to make it super simple to
+  // submit transactions. Given your payload, it will handle generating the
+  // transaction, submitting it, waiting for it, and returning the result in
+  // a more helpful format, the TransactionResult.
+  //
+  // Example usage:
+  // ```
+  // var scriptFunctionPayloadBuilder = ScriptFunctionPayloadBuilder()
+  //   ..type = "script_function_payload"
+  //   ..function_ = "0xabcabcbacbacbcbaabcbcbc323443::MyModule::my_func"
+  //   ..typeArguments = ListBuilder([])
+  //   ..arguments = ListBuilder([]);
+  // var payload = OneOf1<ScriptFunctionPayload>(value: scriptFunctionPayloadBuilder.build());
+  // var transactionResult = await signBuildSubmitWait(payload, aptosAccount);
+  // ```
+  //
+  // Make sure to include the type parameter in OneOf or the (de)serialization
+  // will fail.
+  Future<FullTransactionResult> buildSignSubmitWait(
+      OneOf1 payload, AptosAccount aptosAccount) async {
+    TransactionPayloadBuilder transactionPayloadBuilder =
+        TransactionPayloadBuilder()..oneOf = payload;
+
+    $UserTransactionRequestBuilder? userTransactionRequestBuilder;
+    bool committed = false;
+    String? errorString;
+    String failedAt = "generatedTransaction";
+
+    try {
+      userTransactionRequestBuilder = await generateTransaction(
+          aptosAccount.address, transactionPayloadBuilder);
+
+      failedAt = "signTransaction";
+      SubmitTransactionRequestBuilder submitTransactionRequestBuilder =
+          await signTransaction(aptosAccount, userTransactionRequestBuilder);
+
+      failedAt = "submitTransaction";
+      PendingTransaction pendingTransaction = await unwrapClientCall(client
+          .getTransactionsApi()
+          .submitTransaction(
+              submitTransactionRequest:
+                  submitTransactionRequestBuilder.build()));
+
+      failedAt = "waitForTransaction";
+      PendingTransactionResult pendingTransactionResult =
+          await waitForTransaction(pendingTransaction.hash);
+
+      committed = pendingTransactionResult.committed;
+      errorString = getErrorString(pendingTransactionResult.error);
+    } catch (e) {
+      errorString = getErrorString(e);
+    }
+
+    return FullTransactionResult(committed,
+        userTransactionRequestBuilder?.build(), errorString, failedAt);
+  }
+}
+
+class FullTransactionResult {
+  // Note, this implies exactly what it says. If committed is false, that does
+  // not mean it failed, it just might not have been committed yet / we failed
+  // to check that it was committed.
+  bool committed;
+
+  // The transaction we submitted.
+  $UserTransactionRequest? transaction;
+
+  // Any error from the process.
+  String? errorString;
+
+  String? failedAt;
+
+  FullTransactionResult(
+      this.committed, this.transaction, this.errorString, this.failedAt);
+
+  @override
+  String toString() {
+    return "Committed: $committed, Transaction: $transaction, Error: $errorString, Failed at: $failedAt";
+  }
+}
+
+String? getErrorString(Object? error) {
+  if (error == null) {
+    return null;
+  }
+  if (error is DioError) {
+    return "Type: ${error.type}\n"
+        "Message: ${error.message}\n"
+        "Response: ${error.response}\n"
+        "Error: ${error.error}";
+  }
+  return "$error";
 }

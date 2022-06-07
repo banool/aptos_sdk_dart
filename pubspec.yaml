@@ -1,6 +1,6 @@
 name: aptos_sdk_dart
 description: Aptos SDK
-version: 0.4.0
+version: 0.4.1
 homepage: "https://github.com/banool/aptos_sdk_dart"
 
 environment:
