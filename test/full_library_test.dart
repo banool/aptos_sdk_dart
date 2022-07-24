@@ -9,10 +9,20 @@ import 'package:dio/dio.dart';
 import "package:flutter_test/flutter_test.dart";
 import 'package:one_of/one_of.dart';
 
+// To run these tests, the below account must exist.
+//
+// First, run a local testnet with a faucet like this:
+// cargo run -p aptos -- node run-local-testnet --with-faucet --faucet-port 8081
+//
+// Next, create the account:
+// aptos account create --private-key <key below> --address <address below> --use-faucet --faucet-url http://localhost:8081
+//
+// Now you should be good to run the tests.
+
 HexString privateKey = HexString.fromString(
     "0x257e96d2d763967d72d34d90502625c2d9644401aa409fa3f5e9d6cc59095f9b");
 
-Uri fullnodeUri = Uri.parse("https://fullnode.devnet.aptoslabs.com");
+Uri fullnodeUri = Uri.parse("http://localhost:8080/v1");
 
 HexString otherAddress = HexString.fromString(
     "0x52a8736b51ff3ccb3b90726fda2b4bab1429d2ebde2f60924a5d500995514c57");
@@ -38,17 +48,23 @@ void main() {
     ));
 
     // This can be very helpful with debugging.
-    // dio.interceptors.add(CurlLoggerDioInterceptor(printOnSuccess: true));
+    dio.interceptors.add(CurlLoggerDioInterceptor(printOnSuccess: true));
 
     AptosClientHelper aptosClientHelper = AptosClientHelper.fromDio(dio);
 
     AptosAccount account = AptosAccount.fromPrivateKeyHexString(privateKey);
 
+    // Build the script function.
+    ScriptFunctionIdBuilder scriptFunctionIdBuilder = ScriptFunctionIdBuilder()
+      ..module = (MoveModuleIdBuilder()
+        ..address = "0x1"
+        ..name = "Coin")
+      ..name = "transfer";
+
     // Build a script function payload that transfers coin.
     ScriptFunctionPayloadBuilder scriptFunctionPayloadBuilder =
         ScriptFunctionPayloadBuilder()
-          ..type = "script_function_payload"
-          ..function_ = "0x1::Coin::transfer"
+          ..function_ = scriptFunctionIdBuilder
           ..typeArguments = ListBuilder(["0x1::TestCoin::TestCoin"])
           ..arguments = ListBuilder([
             StringJsonObject(otherAddress.withPrefix()),
@@ -65,14 +81,13 @@ void main() {
 
     // Build a transasction request. This includes a call to determine the
     // current sequence number so we can build that transasction.
-    $UserTransactionRequestBuilder userTransactionBuilder =
+    SubmitTransactionRequestBuilder submitTransactionRequestBuilder =
         await aptosClientHelper.generateTransaction(
             account.address, transactionPayloadBuilder);
 
     // Convert the transaction into the appropriate format and then sign it.
-    SubmitTransactionRequestBuilder submitTransactionRequestBuilder =
-        await aptosClientHelper.signTransaction(
-            account, userTransactionBuilder);
+    submitTransactionRequestBuilder = await aptosClientHelper.signTransaction(
+        account, submitTransactionRequestBuilder);
 
     // Finally submit the transaction.
     PendingTransaction pendingTransaction = await unwrapClientCall(
@@ -101,8 +116,11 @@ void main() {
     // Build a script function payload that transfers coin.
     ScriptFunctionPayloadBuilder scriptFunctionPayloadBuilder =
         ScriptFunctionPayloadBuilder()
-          ..type = "script_function_payload"
-          ..function_ = "0x1::Coin::transfer"
+          ..function_ = (ScriptFunctionIdBuilder()
+            ..module = (MoveModuleIdBuilder()
+              ..address = "0x1"
+              ..name = "Coin")
+            ..name = "transfer")
           ..typeArguments = ListBuilder(["0x1::TestCoin::TestCoin"])
           ..arguments = ListBuilder([
             StringJsonObject(otherAddress.withPrefix()),

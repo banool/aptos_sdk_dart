@@ -58,7 +58,7 @@ class AptosClientHelper {
 
   // This function gets the current sequence number of the account and then
   // builds a transaction using that value.
-  Future<$UserTransactionRequestBuilder> generateTransaction(
+  Future<SubmitTransactionRequestBuilder> generateTransaction(
     HexString sender,
     TransactionPayloadBuilder transactionPayloadBuilder, {
     int maxGasAmount = 1000,
@@ -66,15 +66,14 @@ class AptosClientHelper {
     String gasCurrencyCode = "XUS",
     int expirationFromNowSecs = 10,
   }) async {
-    Account account = await unwrapClientCall(
+    AccountData accountData = await unwrapClientCall(
         client.getAccountsApi().getAccount(address: sender.withPrefix()));
-    return $UserTransactionRequestBuilder()
+    return SubmitTransactionRequestBuilder()
       ..sender = sender.withPrefix()
-      ..sequenceNumber = account.sequenceNumber
+      ..sequenceNumber = accountData.sequenceNumber
       ..payload = transactionPayloadBuilder
       ..maxGasAmount = "$maxGasAmount"
       ..gasUnitPrice = "$gasUnitPrice"
-      ..gasCurrencyCode = gasCurrencyCode
       ..expirationTimestampSecs =
           "${(DateTime.now().millisecondsSinceEpoch + expirationFromNowSecs * 1000) ~/ 1000}";
   }
@@ -83,33 +82,31 @@ class AptosClientHelper {
   // properly signed transaction, which can then be submitted to the blockchain.
   Future<SubmitTransactionRequestBuilder> signTransaction(
     AptosAccount accountFrom,
-    $UserTransactionRequestBuilder userTransactionRequest,
+    SubmitTransactionRequestBuilder submitTransactionRequest,
   ) async {
     // Build the request to create the signing message.
-    UserTransactionRequest u = userTransactionRequest.build();
-    UserCreateSigningMessageRequestBuilder userCreateSigningMessageRequest =
-        UserCreateSigningMessageRequestBuilder()
+    SubmitTransactionRequest u = submitTransactionRequest.build();
+    EncodeSubmissionRequestBuilder encodeSubmissionRequestBuilder =
+        EncodeSubmissionRequestBuilder()
           ..sender = u.sender
           ..sequenceNumber = u.sequenceNumber
           ..payload = u.payload.toBuilder()
           ..maxGasAmount = u.maxGasAmount
           ..gasUnitPrice = u.gasUnitPrice
-          ..gasCurrencyCode = u.gasCurrencyCode
           ..expirationTimestampSecs = u.expirationTimestampSecs;
 
     // This call is where the error is coming from. It happens in the actual
     // call, not in unwrapClientCall, so it's an issue with the client /
     // endpoint code / my request.
-    CreateSigningMessage200Response createSigningMessageResponse =
-        await unwrapClientCall(client.getTransactionsApi().createSigningMessage(
-            userCreateSigningMessageRequest:
-                userCreateSigningMessageRequest.build()));
+    String encodeSubmissionResponse = await unwrapClientCall(client
+        .getTransactionsApi()
+        .encodeSubmission(
+            encodeSubmissionRequest: encodeSubmissionRequestBuilder.build()));
 
-    HexString signatureHex = accountFrom.signHexString(
-        HexString.fromString(createSigningMessageResponse.message));
+    HexString signatureHex = accountFrom
+        .signHexString(HexString.fromString(encodeSubmissionResponse));
 
     Ed25519SignatureBuilder ed25519signatureBuilder = (Ed25519SignatureBuilder()
-      ..type = "ed25519_signature"
       ..publicKey = accountFrom.pubKey().withPrefix()
       ..signature = signatureHex.withPrefix());
 
@@ -122,29 +119,27 @@ class AptosClientHelper {
     SubmitTransactionRequestBuilder submitTransactionRequestBuilder =
         (SubmitTransactionRequestBuilder()
           ..signature = transactionSignatureBuilder
-          ..sender = userTransactionRequest.sender
-          ..sequenceNumber = userTransactionRequest.sequenceNumber
-          ..maxGasAmount = userTransactionRequest.maxGasAmount
-          ..gasUnitPrice = userTransactionRequest.gasUnitPrice
-          ..gasCurrencyCode = userTransactionRequest.gasCurrencyCode
+          ..sender = submitTransactionRequest.sender
+          ..sequenceNumber = submitTransactionRequest.sequenceNumber
+          ..maxGasAmount = submitTransactionRequest.maxGasAmount
+          ..gasUnitPrice = submitTransactionRequest.gasUnitPrice
           ..expirationTimestampSecs =
-              userTransactionRequest.expirationTimestampSecs
-          ..payload = userTransactionRequest.payload);
+              submitTransactionRequest.expirationTimestampSecs
+          ..payload = submitTransactionRequest.payload);
 
     return submitTransactionRequestBuilder;
   }
 
   // Waits for a transaction to move past pending state.
   // Returns true if the transaction moved past pending state, false if not.
-  Future<PendingTransactionResult> waitForTransaction(String txnHashOrVersion,
+  Future<PendingTransactionResult> waitForTransaction(String hash,
       {int durationSecs = 10}) async {
     int count = 0;
     int sleepAmountSecs = 1;
     while (true) {
       try {
-        await unwrapClientCall(client
-            .getTransactionsApi()
-            .getTransaction(txnHashOrVersion: txnHashOrVersion));
+        await unwrapClientCall(
+            client.getTransactionsApi().getTransactionByHash(txnHash: hash));
         return PendingTransactionResult(true, null);
       } catch (e) {
         // This is a temporary thing to handle the case where the client says
@@ -186,18 +181,18 @@ class AptosClientHelper {
     TransactionPayloadBuilder transactionPayloadBuilder =
         TransactionPayloadBuilder()..oneOf = payload;
 
-    $UserTransactionRequestBuilder? userTransactionRequestBuilder;
+    SubmitTransactionRequestBuilder? submitTransactionRequestBuilder;
     bool committed = false;
     String? errorString;
     String failedAt = "generatedTransaction";
 
     try {
-      userTransactionRequestBuilder = await generateTransaction(
+      submitTransactionRequestBuilder = await generateTransaction(
           aptosAccount.address, transactionPayloadBuilder);
 
       failedAt = "signTransaction";
-      SubmitTransactionRequestBuilder submitTransactionRequestBuilder =
-          await signTransaction(aptosAccount, userTransactionRequestBuilder);
+      submitTransactionRequestBuilder =
+          await signTransaction(aptosAccount, submitTransactionRequestBuilder);
 
       failedAt = "submitTransaction";
       PendingTransaction pendingTransaction = await unwrapClientCall(client
@@ -217,7 +212,7 @@ class AptosClientHelper {
     }
 
     return FullTransactionResult(committed,
-        userTransactionRequestBuilder?.build(), errorString, failedAt);
+        submitTransactionRequestBuilder?.build(), errorString, failedAt);
   }
 }
 
@@ -228,7 +223,7 @@ class FullTransactionResult {
   bool committed;
 
   // The transaction we submitted.
-  $UserTransactionRequest? transaction;
+  SubmitTransactionRequest? transaction;
 
   // Any error from the process.
   String? errorString;
