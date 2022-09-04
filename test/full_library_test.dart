@@ -14,25 +14,29 @@ import 'package:one_of/one_of.dart';
 // First, run a local testnet with a faucet like this:
 // cargo run -p aptos -- node run-local-testnet --with-faucet --faucet-port 8081
 //
-// Next, create the account:
-// aptos account create --private-key <key below> --address <address below> --use-faucet --faucet-url http://localhost:8081
+// Next, create the two testing accounts:
+// aptos account fund-with-faucet --account <account1> --url http://localhost:8080/v1 --faucet-url http://localhost:8081
+// aptos account fund-with-faucet --account <account2> --url http://localhost:8080/v1 --faucet-url http://localhost:8081
 //
 // Now you should be good to run the tests.
 
+HexString account1 = HexString.fromString(
+    "0xc40f1c9b9fdc204cf77f68c9bb7029b0abbe8ad9e5561f7794964076a4fbdcfd");
+HexString account2 = HexString.fromString(
+    "0x52a8736b51ff3ccb3b90726fda2b4bab1429d2ebde2f60924a5d500995514c57");
+
+// Private key for account1.
 HexString privateKey = HexString.fromString(
     "0x257e96d2d763967d72d34d90502625c2d9644401aa409fa3f5e9d6cc59095f9b");
 
-Uri fullnodeUri = Uri.parse("http://localhost:8080/v1");
-
-HexString otherAddress = HexString.fromString(
-    "0x52a8736b51ff3ccb3b90726fda2b4bab1429d2ebde2f60924a5d500995514c57");
+//Uri fullnodeUri = Uri.parse("http://localhost:8080/v1");
+Uri fullnodeUri = Uri.parse("http://fullnode.devnet.aptoslabs.com/v1");
 
 // TODO: Use faucet client to fund and create a new account instead.
 // TODO: Find a way to only run these on demand, like integration tests.
 void main() {
   test("test get resources", () async {
-    AptosClientHelper aptosClientHelper =
-        AptosClientHelper.fromBaseUrl(fullnodeUri.toString());
+    AptosClientHelper aptosClientHelper = getTestAptosClient();
 
     AptosAccount account = AptosAccount.fromPrivateKeyHexString(privateKey);
 
@@ -43,41 +47,13 @@ void main() {
   }, tags: "integration");
 
   test("test full transaction flow", () async {
-    Dio dio = Dio(BaseOptions(
-      baseUrl: fullnodeUri.toString(),
-    ));
-
-    // This can be very helpful with debugging.
-    dio.interceptors.add(CurlLoggerDioInterceptor(printOnSuccess: true));
-
-    AptosClientHelper aptosClientHelper = AptosClientHelper.fromDio(dio);
+    AptosClientHelper aptosClientHelper = getTestAptosClient();
 
     AptosAccount account = AptosAccount.fromPrivateKeyHexString(privateKey);
 
-    // Build the script function.
-    ScriptFunctionIdBuilder scriptFunctionIdBuilder = ScriptFunctionIdBuilder()
-      ..module = (MoveModuleIdBuilder()
-        ..address = "0x1"
-        ..name = "Coin")
-      ..name = "transfer";
-
-    // Build a script function payload that transfers coin.
-    ScriptFunctionPayloadBuilder scriptFunctionPayloadBuilder =
-        ScriptFunctionPayloadBuilder()
-          ..function_ = scriptFunctionIdBuilder
-          ..typeArguments = ListBuilder(["0x1::TestCoin::TestCoin"])
-          ..arguments = ListBuilder([
-            StringJsonObject(otherAddress.withPrefix()),
-            StringJsonObject("717")
-          ]);
-
-    // Build that into a transaction payload.
-    // You can also just use OneOf1(value: scriptFunctionPayloadBuilder.build())
+    // Build an entry function payload that transfers coin.
     TransactionPayloadBuilder transactionPayloadBuilder =
-        TransactionPayloadBuilder()
-          ..oneOf = OneOf4<ModuleBundlePayload, ScriptFunctionPayload,
-                  ScriptPayload, WriteSetPayload>(
-              value: scriptFunctionPayloadBuilder.build(), typeIndex: 1);
+        getSampleTransactionPayloadBuilder();
 
     // Build a transasction request. This includes a call to determine the
     // current sequence number so we can build that transasction.
@@ -86,7 +62,7 @@ void main() {
             account.address, transactionPayloadBuilder);
 
     // Convert the transaction into the appropriate format and then sign it.
-    submitTransactionRequestBuilder = await aptosClientHelper.signTransaction(
+    submitTransactionRequestBuilder = await aptosClientHelper.encodeSubmission(
         account, submitTransactionRequestBuilder);
 
     // Finally submit the transaction.
@@ -102,37 +78,50 @@ void main() {
   }, tags: "integration");
 
   test("test signBuildSubmitWait", () async {
-    Dio dio = Dio(BaseOptions(
-      baseUrl: fullnodeUri.toString(),
-    ));
-
-    // This can be very helpful with debugging.
-    // dio.interceptors.add(CurlLoggerDioInterceptor(printOnSuccess: true));
-
-    AptosClientHelper aptosClientHelper = AptosClientHelper.fromDio(dio);
+    AptosClientHelper aptosClientHelper = getTestAptosClient();
 
     AptosAccount account = AptosAccount.fromPrivateKeyHexString(privateKey);
 
-    // Build a script function payload that transfers coin.
-    ScriptFunctionPayloadBuilder scriptFunctionPayloadBuilder =
-        ScriptFunctionPayloadBuilder()
-          ..function_ = (ScriptFunctionIdBuilder()
-            ..module = (MoveModuleIdBuilder()
-              ..address = "0x1"
-              ..name = "Coin")
-            ..name = "transfer")
-          ..typeArguments = ListBuilder(["0x1::TestCoin::TestCoin"])
-          ..arguments = ListBuilder([
-            StringJsonObject(otherAddress.withPrefix()),
-            StringJsonObject("717")
-          ]);
+    // Get a sample transaction payload.
+    TransactionPayloadBuilder transactionPayloadBuilder =
+        getSampleTransactionPayloadBuilder();
 
-    FullTransactionResult transactionResult =
-        await aptosClientHelper.buildSignSubmitWait(
-            OneOf1<ScriptFunctionPayload>(
-                value: scriptFunctionPayloadBuilder.build()),
-            account);
+    FullTransactionResult transactionResult = await aptosClientHelper
+        .buildSignSubmitWait(transactionPayloadBuilder, account);
+
+    // print(transactionResult);
 
     expect(transactionResult.committed, true);
   }, tags: "integration");
+}
+
+// Note: See how this doesn't use the AllOf version or any version of
+// EntryFunctionPayloadBuilder, with or without a $ or _, that's intentional
+TransactionPayloadBuilder getSampleTransactionPayloadBuilder() {
+  TransactionPayloadEntryFunctionPayloadBuilder entryFunctionPayloadBuilder =
+      TransactionPayloadEntryFunctionPayloadBuilder()
+        ..type = "entry_function_payload"
+        ..function_ = "0x1::coin::transfer"
+        ..typeArguments = ListBuilder(["0x1::aptos_coin::AptosCoin"])
+        ..arguments = ListBuilder(
+            [StringJsonObject(account2.withPrefix()), StringJsonObject("717")]);
+
+  // Build that into a transaction payload.
+  TransactionPayloadBuilder transactionPayloadBuilder =
+      TransactionPayloadBuilder()
+        ..oneOf = OneOf1(value: entryFunctionPayloadBuilder.build());
+  return transactionPayloadBuilder;
+}
+
+AptosClientHelper getTestAptosClient() {
+  Dio dio = Dio(BaseOptions(
+    baseUrl: fullnodeUri.toString(),
+  ));
+
+  // This can be very helpful with debugging.
+  // dio.interceptors.add(CurlLoggerDioInterceptor(logPrint: print));
+
+  AptosClientHelper aptosClientHelper = AptosClientHelper.fromDio(dio);
+
+  return aptosClientHelper;
 }

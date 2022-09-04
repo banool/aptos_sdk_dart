@@ -1,13 +1,13 @@
 name: aptos_sdk_dart
 description: Aptos SDK
-version: 0.5.2
+version: 0.5.4
 homepage: "https://github.com/banool/aptos_sdk_dart"
 
 environment:
   sdk: ">=2.17.0 <3.0.0"
 
 dependencies:
-  aptos_api_dart: ^0.5.3
+  aptos_api_dart: ^0.5.4
   convert: ^3.0.2
   dio: ^4.0.6
   pinenacl: ^0.3.4
@@ -18,7 +18,11 @@ dependencies:
 dev_dependencies:
   built_collection:
   built_value:
+  curl_logger_dio_interceptor:
+    # I use this because it lets you set the function used for logging / printing.
+    git:
+      url: https://github.com/hieubui2409/curl_logger_dio_interceptor.git
+      ref: 8ff34b55577083333ab25651335b278192c998e7
   flutter_lints: ^2.0.0
-  curl_logger_dio_interceptor: ^0.0.2
   flutter_test:
     sdk: flutter

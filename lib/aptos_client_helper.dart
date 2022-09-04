@@ -2,6 +2,7 @@ import 'package:aptos_api_dart/aptos_api_dart.dart';
 import 'package:aptos_sdk_dart/aptos_account.dart';
 import 'package:dio/dio.dart';
 import 'package:one_of/one_of.dart';
+import 'package:pinenacl/ed25519.dart';
 
 import 'hex_string.dart';
 
@@ -15,7 +16,23 @@ import 'hex_string.dart';
 Future<T> unwrapClientCall<T>(Future<Response<T>> clientCall,
     {bool throwOnNon200 = true}) async {
   Response<T> response;
-  response = await clientCall;
+
+  try {
+    response = await clientCall;
+  } catch (e) {
+    if (e is DioError) {
+      // Add the response data to the error message.
+      var newError = DioError(
+        error: "${e.message} ${e.response?.data}",
+        requestOptions: e.requestOptions,
+        response: e.response,
+        type: e.type,
+      );
+      newError.stackTrace = e.stackTrace;
+      throw newError;
+    }
+    rethrow;
+  }
   if (response.data == null) {
     throw "Empty response: ${response.statusCode}: ${response.statusMessage}";
   }
@@ -40,21 +57,18 @@ class PendingTransactionResult {
 // `client` directly instead.
 class AptosClientHelper {
   final AptosApiDart client;
-  final bool ignoreErroneousErrorOnSuccess;
 
-  factory AptosClientHelper.fromDio(Dio dio,
-      {bool ignoreErroneousErrorOnSuccess = true}) {
-    return AptosClientHelper(
-        AptosApiDart(dio: dio), ignoreErroneousErrorOnSuccess);
+  factory AptosClientHelper.fromDio(Dio dio) {
+    return AptosClientHelper(AptosApiDart(dio: dio));
   }
 
-  factory AptosClientHelper.fromBaseUrl(String baseUrl,
-      {bool ignoreErroneousErrorOnSuccess = true}) {
-    return AptosClientHelper(
-        AptosApiDart(basePathOverride: baseUrl), ignoreErroneousErrorOnSuccess);
+  factory AptosClientHelper.fromBaseUrl(String baseUrl) {
+    return AptosClientHelper(AptosApiDart(
+      basePathOverride: fixNodeUrl(baseUrl),
+    ));
   }
 
-  AptosClientHelper(this.client, this.ignoreErroneousErrorOnSuccess);
+  AptosClientHelper(this.client);
 
   // This function gets the current sequence number of the account and then
   // builds a transaction using that value.
@@ -68,8 +82,20 @@ class AptosClientHelper {
   }) async {
     AccountData accountData = await unwrapClientCall(
         client.getAccountsApi().getAccount(address: sender.withPrefix()));
+    // Include a fake signature.
+    TransactionSignatureEd25519SignatureBuilder fakeEd25519SignatureBuilder =
+        TransactionSignatureEd25519SignatureBuilder()
+          ..type = "ed25519_signature"
+          ..publicKey = HexString.fromBytes(
+              Uint8List.fromList(List<int>.generate(32, (_) => 0))).noPrefix()
+          ..signature = HexString.fromBytes(
+              Uint8List.fromList(List<int>.generate(32, (_) => 0))).noPrefix();
+    TransactionSignatureBuilder fakeSignatureBuilder =
+        TransactionSignatureBuilder()
+          ..oneOf = OneOf1(value: fakeEd25519SignatureBuilder.build());
     return SubmitTransactionRequestBuilder()
       ..sender = sender.withPrefix()
+      ..signature = fakeSignatureBuilder
       ..sequenceNumber = accountData.sequenceNumber
       ..payload = transactionPayloadBuilder
       ..maxGasAmount = "$maxGasAmount"
@@ -78,22 +104,22 @@ class AptosClientHelper {
           "${(DateTime.now().millisecondsSinceEpoch + expirationFromNowSecs * 1000) ~/ 1000}";
   }
 
-  // Converts a transaction request produced by `generate_transaction` into a
+  // Converts a transaction request produced by `generateTransaction` into a
   // properly signed transaction, which can then be submitted to the blockchain.
-  Future<SubmitTransactionRequestBuilder> signTransaction(
+  Future<SubmitTransactionRequestBuilder> encodeSubmission(
     AptosAccount accountFrom,
     SubmitTransactionRequestBuilder submitTransactionRequest,
   ) async {
     // Build the request to create the signing message.
-    SubmitTransactionRequest u = submitTransactionRequest.build();
     EncodeSubmissionRequestBuilder encodeSubmissionRequestBuilder =
         EncodeSubmissionRequestBuilder()
-          ..sender = u.sender
-          ..sequenceNumber = u.sequenceNumber
-          ..payload = u.payload.toBuilder()
-          ..maxGasAmount = u.maxGasAmount
-          ..gasUnitPrice = u.gasUnitPrice
-          ..expirationTimestampSecs = u.expirationTimestampSecs;
+          ..sender = submitTransactionRequest.sender
+          ..sequenceNumber = submitTransactionRequest.sequenceNumber
+          ..payload = submitTransactionRequest.payload
+          ..maxGasAmount = submitTransactionRequest.maxGasAmount
+          ..gasUnitPrice = submitTransactionRequest.gasUnitPrice
+          ..expirationTimestampSecs =
+              submitTransactionRequest.expirationTimestampSecs;
 
     // This call is where the error is coming from. It happens in the actual
     // call, not in unwrapClientCall, so it's an issue with the client /
@@ -106,15 +132,15 @@ class AptosClientHelper {
     HexString signatureHex = accountFrom
         .signHexString(HexString.fromString(encodeSubmissionResponse));
 
-    Ed25519SignatureBuilder ed25519signatureBuilder = (Ed25519SignatureBuilder()
-      ..publicKey = accountFrom.pubKey().withPrefix()
-      ..signature = signatureHex.withPrefix());
+    TransactionSignatureEd25519SignatureBuilder ed25519signatureBuilder =
+        (TransactionSignatureEd25519SignatureBuilder()
+          ..type = "ed25519_signature"
+          ..publicKey = accountFrom.pubKey().withPrefix()
+          ..signature = signatureHex.withPrefix());
 
     TransactionSignatureBuilder transactionSignatureBuilder =
-        TransactionSignatureBuilder()
-          ..oneOf = OneOf3<Ed25519Signature, MultiAgentSignature,
-                  MultiEd25519Signature>(
-              value: ed25519signatureBuilder.build(), typeIndex: 0);
+        (TransactionSignatureBuilder()
+          ..oneOf = OneOf1(value: ed25519signatureBuilder.build()));
 
     SubmitTransactionRequestBuilder submitTransactionRequestBuilder =
         (SubmitTransactionRequestBuilder()
@@ -165,8 +191,8 @@ class AptosClientHelper {
   //
   // Example usage:
   // ```
-  // var scriptFunctionPayloadBuilder = ScriptFunctionPayloadBuilder()
-  //   ..type = "script_function_payload"
+  // var entryFunctionPayloadBuilder = $EntryFunctionPayloadBuilder()
+  //   ..type = "entry_function_payload"
   //   ..function_ = "0xabcabcbacbacbcbaabcbcbc323443::MyModule::my_func"
   //   ..typeArguments = ListBuilder([])
   //   ..arguments = ListBuilder([]);
@@ -177,10 +203,8 @@ class AptosClientHelper {
   // Make sure to include the type parameter in OneOf or the (de)serialization
   // will fail.
   Future<FullTransactionResult> buildSignSubmitWait(
-      OneOf1 payload, AptosAccount aptosAccount) async {
-    TransactionPayloadBuilder transactionPayloadBuilder =
-        TransactionPayloadBuilder()..oneOf = payload;
-
+      TransactionPayloadBuilder transactionPayloadBuilder,
+      AptosAccount aptosAccount) async {
     SubmitTransactionRequestBuilder? submitTransactionRequestBuilder;
     bool committed = false;
     String? errorString;
@@ -192,7 +216,7 @@ class AptosClientHelper {
 
       failedAt = "signTransaction";
       submitTransactionRequestBuilder =
-          await signTransaction(aptosAccount, submitTransactionRequestBuilder);
+          await encodeSubmission(aptosAccount, submitTransactionRequestBuilder);
 
       failedAt = "submitTransaction";
       PendingTransaction pendingTransaction = await unwrapClientCall(client
@@ -250,4 +274,18 @@ String? getErrorString(Object? error) {
         "Error: ${error.error}";
   }
   return "$error";
+}
+
+const String defaultVersionPathBase = "/v1";
+
+// Take a node URL and if it is missing a version suffix, add it.
+String fixNodeUrl(String nodeUrl) {
+  String out = nodeUrl;
+  if (out.endsWith("/")) {
+    out = out.substring(0, out.length - 1);
+  }
+  if (!out.endsWith(defaultVersionPathBase)) {
+    out = "$out$defaultVersionPathBase";
+  }
+  return out;
 }

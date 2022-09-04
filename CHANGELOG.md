@@ -1,3 +1,6 @@
+## 0.5.4
+- Use version 0.5.4 of [aptos_api_dart](https://github.com/banool/aptos_api_dart/).
+
 ## 0.4.2
 - Use version 0.4.1 of [aptos_api_dart](https://github.com/banool/aptos_api_dart/).
 
