@@ -1,5 +1,7 @@
 import 'package:aptos_api_dart/aptos_api_dart.dart';
 import 'package:aptos_sdk_dart/aptos_account.dart';
+import 'package:built_collection/built_collection.dart';
+import 'package:built_value/json_object.dart';
 import 'package:dio/dio.dart';
 import 'package:one_of/one_of.dart';
 import 'package:pinenacl/ed25519.dart';
@@ -237,6 +239,24 @@ class AptosClientHelper {
 
     return FullTransactionResult(committed,
         submitTransactionRequestBuilder?.build(), errorString, failedAt);
+  }
+
+  // Note: See how this doesn't use the AllOf version or any version of
+  // EntryFunctionPayloadBuilder, with or without a $ or _? That's intentional
+  static TransactionPayloadBuilder buildPayload(
+      String func, List<String> typeArguments, List<JsonObject> arguments) {
+    TransactionPayloadEntryFunctionPayloadBuilder entryFunctionPayloadBuilder =
+        TransactionPayloadEntryFunctionPayloadBuilder()
+          ..type = "entry_function_payload"
+          ..function_ = func
+          ..typeArguments = ListBuilder(typeArguments)
+          ..arguments = ListBuilder(arguments);
+
+    // Build that into a transaction payload.
+    TransactionPayloadBuilder transactionPayloadBuilder =
+        TransactionPayloadBuilder()
+          ..oneOf = OneOf1(value: entryFunctionPayloadBuilder.build());
+    return transactionPayloadBuilder;
   }
 }
 

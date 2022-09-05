@@ -2,12 +2,9 @@ import 'package:aptos_api_dart/aptos_api_dart.dart';
 import 'package:aptos_sdk_dart/aptos_account.dart';
 import 'package:aptos_sdk_dart/aptos_client_helper.dart';
 import 'package:aptos_sdk_dart/hex_string.dart';
-import 'package:built_collection/built_collection.dart';
 import 'package:built_value/json_object.dart';
-import 'package:curl_logger_dio_interceptor/curl_logger_dio_interceptor.dart';
 import 'package:dio/dio.dart';
 import "package:flutter_test/flutter_test.dart";
-import 'package:one_of/one_of.dart';
 
 // To run these tests, the below account must exist.
 //
@@ -98,19 +95,10 @@ void main() {
 // Note: See how this doesn't use the AllOf version or any version of
 // EntryFunctionPayloadBuilder, with or without a $ or _, that's intentional
 TransactionPayloadBuilder getSampleTransactionPayloadBuilder() {
-  TransactionPayloadEntryFunctionPayloadBuilder entryFunctionPayloadBuilder =
-      TransactionPayloadEntryFunctionPayloadBuilder()
-        ..type = "entry_function_payload"
-        ..function_ = "0x1::coin::transfer"
-        ..typeArguments = ListBuilder(["0x1::aptos_coin::AptosCoin"])
-        ..arguments = ListBuilder(
-            [StringJsonObject(account2.withPrefix()), StringJsonObject("717")]);
-
-  // Build that into a transaction payload.
-  TransactionPayloadBuilder transactionPayloadBuilder =
-      TransactionPayloadBuilder()
-        ..oneOf = OneOf1(value: entryFunctionPayloadBuilder.build());
-  return transactionPayloadBuilder;
+  return AptosClientHelper.buildPayload(
+      "0x1::coin::transfer",
+      ["0x1::aptos_coin::AptosCoin"],
+      [StringJsonObject(account2.withPrefix()), StringJsonObject("717")]);
 }
 
 AptosClientHelper getTestAptosClient() {

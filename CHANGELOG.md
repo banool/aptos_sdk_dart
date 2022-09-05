@@ -1,3 +1,6 @@
+## 0.5.5
+- Add `buildPayload` to `AptosClientHelper`.
+
 ## 0.5.4
 - Use version 0.5.4 of [aptos_api_dart](https://github.com/banool/aptos_api_dart/).
 
