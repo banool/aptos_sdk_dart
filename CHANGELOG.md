@@ -1,3 +1,7 @@
+## 1.0.0
+- Use version 1.0.0 of [aptos_api_dart](https://github.com/banool/aptos_api_dart/).
+- Make integration tests set themselves up with the faucet.
+
 ## 0.5.5
 - Add `buildPayload` to `AptosClientHelper`.
 

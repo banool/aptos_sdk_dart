@@ -48,9 +48,10 @@ Future<T> unwrapClientCall<T>(Future<Response<T>> clientCall,
 
 class PendingTransactionResult {
   bool committed;
+  bool success;
   Object? error;
 
-  PendingTransactionResult(this.committed, this.error);
+  PendingTransactionResult(this.committed, this.success, this.error);
 }
 
 // This class provides some helpful wrappers on top of the functionality
@@ -77,8 +78,8 @@ class AptosClientHelper {
   Future<SubmitTransactionRequestBuilder> generateTransaction(
     HexString sender,
     TransactionPayloadBuilder transactionPayloadBuilder, {
-    int maxGasAmount = 1000,
-    int gasUnitPrice = 1,
+    int maxGasAmount = 10000,
+    int gasUnitPrice = 100,
     String gasCurrencyCode = "XUS",
     int expirationFromNowSecs = 10,
   }) async {
@@ -166,21 +167,16 @@ class AptosClientHelper {
     int sleepAmountSecs = 1;
     while (true) {
       try {
-        await unwrapClientCall(
+        Transaction transaction = await unwrapClientCall(
             client.getTransactionsApi().getTransactionByHash(txnHash: hash));
-        return PendingTransactionResult(true, null);
+        TransactionUserTransaction userTransaction =
+            transaction.oneOf.value as TransactionUserTransaction;
+        return PendingTransactionResult(true, userTransaction.success, null);
       } catch (e) {
-        // This is a temporary thing to handle the case where the client says
-        // the call failed, but really it succeeded, and it's just that the API
-        // returns a struct with an illegally empty field according to the
-        // OpenAPI spec.
-        if (e.toString().contains("mark \"handle\" with @nullable")) {
-          return PendingTransactionResult(true, null);
-        }
         await Future.delayed(Duration(seconds: sleepAmountSecs));
         count += 1;
         if (count == durationSecs) {
-          return PendingTransactionResult(false, e);
+          return PendingTransactionResult(false, false, e);
         }
       }
     }
@@ -209,6 +205,7 @@ class AptosClientHelper {
       AptosAccount aptosAccount) async {
     SubmitTransactionRequestBuilder? submitTransactionRequestBuilder;
     bool committed = false;
+    bool success = false;
     String? errorString;
     String failedAt = "generatedTransaction";
 
@@ -233,6 +230,7 @@ class AptosClientHelper {
 
       committed = pendingTransactionResult.committed;
       errorString = getErrorString(pendingTransactionResult.error);
+      success = pendingTransactionResult.success;
     } catch (e) {
       errorString = getErrorString(e);
     }

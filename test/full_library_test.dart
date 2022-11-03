@@ -6,17 +6,6 @@ import 'package:built_value/json_object.dart';
 import 'package:dio/dio.dart';
 import "package:flutter_test/flutter_test.dart";
 
-// To run these tests, the below account must exist.
-//
-// First, run a local testnet with a faucet like this:
-// cargo run -p aptos -- node run-local-testnet --with-faucet --faucet-port 8081
-//
-// Next, create the two testing accounts:
-// aptos account fund-with-faucet --account <account1> --url http://localhost:8080/v1 --faucet-url http://localhost:8081
-// aptos account fund-with-faucet --account <account2> --url http://localhost:8080/v1 --faucet-url http://localhost:8081
-//
-// Now you should be good to run the tests.
-
 HexString account1 = HexString.fromString(
     "0xc40f1c9b9fdc204cf77f68c9bb7029b0abbe8ad9e5561f7794964076a4fbdcfd");
 HexString account2 = HexString.fromString(
@@ -27,12 +16,32 @@ HexString privateKey = HexString.fromString(
     "0x257e96d2d763967d72d34d90502625c2d9644401aa409fa3f5e9d6cc59095f9b");
 
 //Uri fullnodeUri = Uri.parse("http://localhost:8080/v1");
-Uri fullnodeUri = Uri.parse("http://fullnode.devnet.aptoslabs.com/v1");
+Uri fullnodeUri = Uri.parse("https://fullnode.devnet.aptoslabs.com/v1");
 
-// TODO: Use faucet client to fund and create a new account instead.
-// TODO: Find a way to only run these on demand, like integration tests.
+// Fund the two accounts with the faucet.
+Future<void> setUpAccounts() async {
+  AptosClientHelper aptosClientHelper = getTestAptosClient();
+  var dio = Dio();
+
+  var response1 = await unwrapClientCall(dio.post(
+      'https://faucet.devnet.aptoslabs.com/fund',
+      data: {"address": account1.withPrefix()}));
+  PendingTransactionResult txn1 =
+      await aptosClientHelper.waitForTransaction(response1["txn_hashes"][0]);
+  expect(txn1.success, true);
+
+  var response2 = await unwrapClientCall(dio.post(
+      'https://faucet.devnet.aptoslabs.com/fund',
+      data: {"address": account2.withPrefix()}));
+  PendingTransactionResult txn2 =
+      await aptosClientHelper.waitForTransaction(response2["txn_hashes"][0]);
+  expect(txn2.success, true);
+}
+
 void main() {
   test("test get resources", () async {
+    await setUpAccounts();
+
     AptosClientHelper aptosClientHelper = getTestAptosClient();
 
     AptosAccount account = AptosAccount.fromPrivateKeyHexString(privateKey);
@@ -44,6 +53,8 @@ void main() {
   }, tags: "integration");
 
   test("test full transaction flow", () async {
+    await setUpAccounts();
+
     AptosClientHelper aptosClientHelper = getTestAptosClient();
 
     AptosAccount account = AptosAccount.fromPrivateKeyHexString(privateKey);
