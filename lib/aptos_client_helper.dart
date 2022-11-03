@@ -235,7 +235,7 @@ class AptosClientHelper {
       errorString = getErrorString(e);
     }
 
-    return FullTransactionResult(committed,
+    return FullTransactionResult(committed, success,
         submitTransactionRequestBuilder?.build(), errorString, failedAt);
   }
 
@@ -261,8 +261,12 @@ class AptosClientHelper {
 class FullTransactionResult {
   // Note, this implies exactly what it says. If committed is false, that does
   // not mean it failed, it just might not have been committed yet / we failed
-  // to check that it was committed.
+  // to check that it was committed. Similarly if it was true, it doesn't mean
+  // it succeeded.
   bool committed;
+
+  // This will only be true if committed is true and execution succeeded.
+  bool success;
 
   // The transaction we submitted.
   SubmitTransactionRequest? transaction;
@@ -272,12 +276,12 @@ class FullTransactionResult {
 
   String? failedAt;
 
-  FullTransactionResult(
-      this.committed, this.transaction, this.errorString, this.failedAt);
+  FullTransactionResult(this.committed, this.success, this.transaction,
+      this.errorString, this.failedAt);
 
   @override
   String toString() {
-    return "Committed: $committed, Transaction: $transaction, Error: $errorString, Failed at: $failedAt";
+    return "Committed: $committed, Succes: $success, Transaction: $transaction, Error: $errorString, Failed at: $failedAt";
   }
 }
 

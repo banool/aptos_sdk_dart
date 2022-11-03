@@ -1,3 +1,6 @@
+## 1.0.1
+- Include `success` in FullTransactionResult.
+
 ## 1.0.0
 - Use version 1.0.0 of [aptos_api_dart](https://github.com/banool/aptos_api_dart/).
 - Make integration tests set themselves up with the faucet.
