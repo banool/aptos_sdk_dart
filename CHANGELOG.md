@@ -1,3 +1,6 @@
+## 1.0.2
+- Add support for setting gas params in `buildSignSubmitWait`.
+
 ## 1.0.1
 - Include `success` in FullTransactionResult.
 

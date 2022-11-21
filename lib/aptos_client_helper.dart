@@ -61,6 +61,7 @@ class PendingTransactionResult {
 class AptosClientHelper {
   final AptosApiDart client;
 
+  // Warning, this won't fix the URL for you like fromBaseUrl will.
   factory AptosClientHelper.fromDio(Dio dio) {
     return AptosClientHelper(AptosApiDart(dio: dio));
   }
@@ -78,9 +79,8 @@ class AptosClientHelper {
   Future<SubmitTransactionRequestBuilder> generateTransaction(
     HexString sender,
     TransactionPayloadBuilder transactionPayloadBuilder, {
-    int maxGasAmount = 10000,
-    int gasUnitPrice = 100,
-    String gasCurrencyCode = "XUS",
+    int maxGasAmount = 1000000,
+    int gasUnitPrice = 200,
     int expirationFromNowSecs = 10,
   }) async {
     AccountData accountData = await unwrapClientCall(
@@ -202,7 +202,10 @@ class AptosClientHelper {
   // will fail.
   Future<FullTransactionResult> buildSignSubmitWait(
       TransactionPayloadBuilder transactionPayloadBuilder,
-      AptosAccount aptosAccount) async {
+      AptosAccount aptosAccount,
+      {int maxGasAmount = 1000000,
+      int gasUnitPrice = 200,
+      int expirationFromNowSecs = 10}) async {
     SubmitTransactionRequestBuilder? submitTransactionRequestBuilder;
     bool committed = false;
     bool success = false;
