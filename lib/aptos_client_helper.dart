@@ -29,8 +29,8 @@ Future<T> unwrapClientCall<T>(Future<Response<T>> clientCall,
         requestOptions: e.requestOptions,
         response: e.response,
         type: e.type,
+        stackTrace: e.stackTrace,
       );
-      newError.stackTrace = e.stackTrace;
       throw newError;
     }
     rethrow;
