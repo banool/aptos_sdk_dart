@@ -15,7 +15,10 @@ HexString account2 = HexString.fromString(
 HexString privateKey = HexString.fromString(
     "0x257e96d2d763967d72d34d90502625c2d9644401aa409fa3f5e9d6cc59095f9b");
 
-//Uri fullnodeUri = Uri.parse("http://localhost:8080/v1");
+// Uri faucetUri = Uri.parse("http://localhost:8081");
+// Uri fullnodeUri = Uri.parse("http://localhost:8080/v1");
+
+Uri faucetUri = Uri.parse("https://faucet.devnet.aptoslabs.com");
 Uri fullnodeUri = Uri.parse("https://fullnode.devnet.aptoslabs.com/v1");
 
 // Fund the two accounts with the faucet.
@@ -23,16 +26,14 @@ Future<void> setUpAccounts() async {
   AptosClientHelper aptosClientHelper = getTestAptosClient();
   var dio = Dio();
 
-  var response1 = await unwrapClientCall(dio.post(
-      'https://faucet.devnet.aptoslabs.com/fund',
-      data: {"address": account1.withPrefix()}));
+  var response1 = await unwrapClientCall(dio.post("$faucetUri/fund",
+      data: {"address": account1.withPrefix(), "amount": 100000000}));
   PendingTransactionResult txn1 =
       await aptosClientHelper.waitForTransaction(response1["txn_hashes"][0]);
   expect(txn1.success, true);
 
-  var response2 = await unwrapClientCall(dio.post(
-      'https://faucet.devnet.aptoslabs.com/fund',
-      data: {"address": account2.withPrefix()}));
+  var response2 = await unwrapClientCall(dio.post("$faucetUri/fund",
+      data: {"address": account2.withPrefix(), "amount": 100000000}));
   PendingTransactionResult txn2 =
       await aptosClientHelper.waitForTransaction(response2["txn_hashes"][0]);
   expect(txn2.success, true);
@@ -86,6 +87,8 @@ void main() {
   }, tags: "integration");
 
   test("test signBuildSubmitWait", () async {
+    await setUpAccounts();
+
     AptosClientHelper aptosClientHelper = getTestAptosClient();
 
     AptosAccount account = AptosAccount.fromPrivateKeyHexString(privateKey);

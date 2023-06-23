@@ -60,16 +60,17 @@ class PendingTransactionResult {
 // `client` directly instead.
 class AptosClientHelper {
   final AptosApiDart client;
-
-  // Warning, this won't fix the URL for you like fromBaseUrl will.
   factory AptosClientHelper.fromDio(Dio dio) {
+    dio.options.baseUrl = fixNodeUrl(dio.options.baseUrl);
+    // There is no good way to access the version from pubspec.yaml, so we
+    // just have to keep this string up to date manually.
+    dio.options.headers.addAll({"x-aptos-client": "aptos-dart-sdk/1.2.0"});
     return AptosClientHelper(AptosApiDart(dio: dio));
   }
 
   factory AptosClientHelper.fromBaseUrl(String baseUrl) {
-    return AptosClientHelper(AptosApiDart(
-      basePathOverride: fixNodeUrl(baseUrl),
-    ));
+    Dio dio = Dio(BaseOptions(baseUrl: baseUrl));
+    return AptosClientHelper.fromDio(dio);
   }
 
   AptosClientHelper(this.client);
@@ -81,7 +82,7 @@ class AptosClientHelper {
     TransactionPayloadBuilder transactionPayloadBuilder, {
     int maxGasAmount = 1000000,
     int gasUnitPrice = 200,
-    int expirationFromNowSecs = 10,
+    int expirationFromNowSecs = 15,
   }) async {
     AccountData accountData = await unwrapClientCall(
         client.getAccountsApi().getAccount(address: sender.withPrefix()));
